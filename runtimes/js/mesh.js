@@ -403,16 +403,15 @@ class ToolRegistry {
   listTools() { return [...this.tools.keys()].sort(); }
 
   _registerBuiltins() {
-    // data
+    // core tools (always available)
+    this.register('print', (d) => { console.log(typeof d === 'object' ? JSON.stringify(d, null, 2) : d); return d; });
     this.register('json.parse', (d) => { try { return typeof d === 'string' ? JSON.parse(d) : d; } catch (e) { return err(e.message, 'json.parse'); } });
     this.register('json.stringify', (d) => JSON.stringify(d, null, 2));
     this.register('format', (d, ...a) => {
       const t = a[0] || '{{.}}';
-      if (typeof d === 'object') {
+      if (typeof d === 'object' && d !== null) {
         let r = t;
-        for (const [k, v] of Object.entries(d)) {
-          r = r.split('{{.' + k + '}}').join(String(v));
-        }
+        for (const [k, v] of Object.entries(d)) r = r.split('{{.' + k + '}}').join(String(v));
         return r;
       }
       return String(d);
@@ -430,7 +429,7 @@ class ToolRegistry {
       if (!url) return err('http.get requires a url');
       try {
         const ctrl = new AbortController();
-        const tid = setTimeout(() => ctrl.abort(), (a.find(x => typeof x === 'number') || 30) * 1000);
+        const tid = setTimeout(() => ctrl.abort(), 30000);
         const resp = await fetch(String(url), { signal: ctrl.signal });
         clearTimeout(tid);
         const body = await resp.text();
@@ -439,9 +438,9 @@ class ToolRegistry {
     });
     this.register('http.post', async (d, ...a) => {
       const url = a[0] || d;
-      const body = a.find(x => typeof x === 'object') || {};
+      const bodyData = a.find(x => typeof x === 'object') || {};
       try {
-        const resp = await fetch(String(url), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+        const resp = await fetch(String(url), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bodyData) });
         return { status: resp.status, body: await resp.text() };
       } catch (e) { return err(`http error: ${e.message}`, 'http.post'); }
     });
@@ -460,27 +459,14 @@ class ToolRegistry {
     this.register('merge', (d) => { if (typeof d === 'object' && d !== null) { const r = []; for (const v of Object.values(d)) { if (Array.isArray(v)) r.push(...v); else r.push(v); } return r; } return d; });
 
     // output
-    this.register('print', (d) => { console.log(typeof d === 'object' ? JSON.stringify(d, null, 2) : d); return d; });
     this.register('log', (d, ...a) => { const level = a[0] || 'info'; const msg = a[1] || String(d); console.log(`[${level}] ${msg}`); return d; });
     this.register('return', (d) => d);
-    this.register('save', (d, ...a) => { const path = a[0] || 'output.json'; if (typeof Deno !== 'undefined') Deno.writeTextFileSync(path, JSON.stringify(d, null, 2)); return d; });
-    this.register('load', (d, ...a) => { const path = a[0] || d; if (typeof Deno !== 'undefined') return JSON.parse(Deno.readTextFileSync(path)); return err('load requires deno runtime'); });
 
     // system
     this.register('wait', (d, ...a) => { const s = a[0] || 1; return new Promise(r => setTimeout(() => r(d), s * 1000)); });
     this.register('now', () => new Date().toISOString());
     this.register('uuid', () => crypto.randomUUID());
-    this.register('env', (d, ...a) => { const name = a[0] || d; return typeof process !== 'undefined' ? (process.env[name] || '') : ''; });
-    this.register('shell', async (d, ...a) => {
-      const cmd = a[0] || d;
-      if (typeof Deno !== 'undefined') {
-        const p = Deno.run({ cmd: ['sh', '-c', String(cmd)], stdout: 'piped', stderr: 'piped' });
-        const output = await p.output();
-        const error = await p.stderrOutput();
-        return { stdout: new TextDecoder().decode(output), stderr: new TextDecoder().decode(error), code: (await p.status()).code };
-      }
-      return err('shell requires deno runtime');
-    });
+    this.register('env', (d, ...a) => { const name = a[0] || d; return typeof process !== 'undefined' ? (process.env[name] || '') : (typeof Deno !== 'undefined' ? (Deno.env.get(name) || '') : ''); });
   }
 }
 
@@ -686,29 +672,44 @@ function repl(registry) {
 
 // ── exports ──────────────────────────────────────────────────────────────────
 
+// ── exports ──────────────────────────────────────────────────────────────────
+
 export { run, runFile, check, repl, lex, Parser, Executor, ToolRegistry, MeshError, MeshOk, ok, err };
 
 // ── cli (deno/node) ──────────────────────────────────────────────────────────
 
-if (typeof process !== 'undefined' && process.argv) {
+async function main() {
   const args = process.argv.slice(2);
   if (args[0] === '--repl' || args[0] === 'repl') {
     repl();
   } else if (args[0] === '--tools' || args[0] === 'tools') {
+    const { ALL_TOOLS } = await import('./tools.js');
     const reg = new ToolRegistry();
+    for (const [name, fn] of Object.entries(ALL_TOOLS)) reg.register(name, fn);
     console.log(reg.listTools().join('\n'));
+    console.log(`\n${reg.listTools().length} tools available`);
   } else if (args[0] === 'check' && args[1]) {
-    import('fs').then(fs => {
-      const errs = check(fs.readFileSync(args[1], 'utf-8'));
-      errs.forEach(e => console.error(`error: ${e}`));
-      process.exit(errs.length ? 1 : 0);
-    });
+    const fs = await import('fs');
+    const errs = check(fs.readFileSync(args[1], 'utf-8'));
+    errs.forEach(e => console.error(`error: ${e}`));
+    process.exit(errs.length ? 1 : 0);
   } else if (args[0] === 'run' && args[1]) {
-    import('fs').then(async fs => {
-      const result = await run(fs.readFileSync(args[1], 'utf-8'));
-      if (result !== undefined && result !== null) {
-        console.log(typeof result === 'object' ? JSON.stringify(result, null, 2) : result);
-      }
-    });
+    const fs = await import('fs');
+    const { ALL_TOOLS } = await import('./tools.js');
+    const reg = new ToolRegistry();
+    for (const [name, fn] of Object.entries(ALL_TOOLS)) reg.register(name, fn);
+    const result = await run(fs.readFileSync(args[1], 'utf-8'), null, reg);
+    if (result !== undefined && result !== null) {
+      console.log(typeof result === 'object' ? JSON.stringify(result, null, 2) : result);
+    }
+  } else if (args[0] === '--count') {
+    const { TOOL_COUNT } = await import('./tools.js');
+    console.log(`${TOOL_COUNT} tools`);
+  } else {
+    repl();
   }
+}
+
+if (typeof process !== 'undefined' && process.argv && process.argv[1]?.includes('mesh.js')) {
+  main();
 }
