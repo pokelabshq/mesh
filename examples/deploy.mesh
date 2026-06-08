@@ -1,0 +1,27 @@
+# deploy.mesh — deployment workflow
+
+# build the project
+shell "npm run build"
+  → if .code != 0:
+      log "error" "build failed"
+      slack.send "#deploys" "❌ build failed"
+      return {ok: false}
+
+# run tests
+shell "npm test"
+  → if .code != 0:
+      log "error" "tests failed"
+      slack.send "#deploys" "❌ tests failed"
+      return {ok: false}
+
+# deploy
+shell "npm run deploy"
+  → if .code != 0:
+      log "error" "deploy failed"
+      slack.send "#deploys" "❌ deploy failed"
+      return {ok: false}
+
+# notify success
+slack.send "#deploys" "✅ deployed successfully"
+log "info" "deployment complete"
+return {ok: true}

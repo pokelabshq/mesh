@@ -1,0 +1,25 @@
+# triage.mesh — github issue triage
+
+# fetch open issues
+github.issues "pokelabshq/council" state:"open"
+  → set issues
+
+# classify each issue
+for each issue:
+  parallel:
+    branch sentiment:
+      ai.sentiment issue.title
+    branch priority:
+      ai.classify issue.labels "high,medium,low"
+  → merge
+  → set classification
+
+  # route based on classification
+  if .sentiment.label == "negative" and .priority == "high":
+    slack.send "#alerts" "🚨 {{.issue.title}} (#{{.issue.number}})"
+  → if .priority == "high":
+    github.label issue.number "priority-high"
+
+# summary
+format "triaged {{.issues | count}} issues"
+  → print

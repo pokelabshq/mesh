@@ -1,0 +1,33 @@
+# backup.mesh — automated backup workflow
+
+# create timestamp
+time.now → time.format "%Y%m%d_%H%M%S"
+  → set timestamp
+
+# compress
+shell "tar -czf backup_{{.timestamp}}.tar.gz ~/projects ~/documents"
+  → if .code != 0:
+      log "error" "backup compression failed"
+      return {ok: false}
+
+# verify backup exists
+fs.exists "backup_{{.timestamp}}.tar.gz"
+  → if .:
+      fs.info "backup_{{.timestamp}}.tar.gz"
+      → set info
+      → format "✅ backup complete: {{.size}} bytes"
+      → print
+      → telegram.send "@thealxlabs" "backup: {{.size}} bytes"
+  → else:
+      log "error" "backup file not found"
+      telegram.send "@thealxlabs" "❌ backup failed"
+
+# cleanup old backups (keep last 5)
+fs.list "."
+  → filter .name startsWith "backup_"
+  → filter .name endsWith ".tar.gz"
+  → sort by: .name
+  → skip 5
+  → for each .:
+      fs.remove .name
+      log "info" "removed old backup: {{.name}}"
