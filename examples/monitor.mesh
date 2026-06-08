@@ -1,0 +1,10 @@
+# monitor.mesh — service health monitoring example
+
+# check if pokelabs.org is healthy
+http.get "https://pokelabs.org"
+  → if .status == 200:
+      log "info" "pokelabs.org is healthy ({{.status}})"
+  → if .status != 200:
+      log "error" "pokelabshq.org returned {{.status}}"
+      # in a real setup, you'd send an alert:
+      # telegram.send "@thealxlabs" "⚠️ pokelabs.org is down ({{.status}})"

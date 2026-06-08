@@ -1,0 +1,9 @@
+# hello.mesh — basic pipeline example
+
+# fetch the latest commits from council
+http.get "https://api.github.com/repos/pokelabshq/council/commits"
+  → json.parse
+  → take 3
+  → for each commit:
+      format "{{.sha[:7]}} — {{.commit.message}}"
+  → print

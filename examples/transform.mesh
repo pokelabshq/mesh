@@ -1,0 +1,13 @@
+# transform.mesh — data transformation example
+
+# simulate api response
+json.parse
+  → .users
+  → filter
+  → sort by: .name
+  → take 10
+  → map
+  → unique
+  → count
+  → format "total unique users: {{.}}"
+  → print
