@@ -72,7 +72,9 @@ retry 3, backoff 2s:
 
 ## language spec
 
-see [SPEC.md](SPEC.md) for the full language specification.
+see [SPEC.md](SPEC.md)  
+website: [mesh.pokelabs.org](https://mesh.pokelabs.org)  
+full docs: [docs.md](https://github.com/pokelabshq/mesh-website/blob/main/docs.md) for the full language specification.
 
 ## built-in tools
 
