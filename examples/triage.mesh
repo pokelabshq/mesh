@@ -1,25 +1,17 @@
-# triage.mesh — github issue triage
+# triage.mesh — triage GitHub issues into priority buckets
+# fetches open issues, filters by labels, sorts by reaction count
 
-# fetch open issues
-github.issues "pokelabshq/council" state:"open"
-  → set issues
+http.get "https://api.github.com/repos/thealxlabs/council/issues?state=open&per_page=100" → json.parse → as "issues"
 
-# classify each issue
-for each issue:
-  parallel:
-    branch sentiment:
-      ai.sentiment issue.title
-    branch priority:
-      ai.classify issue.labels "high,medium,low"
-  → merge
-  → set classification
+"found {{.issues | count}} open issues" → log level="info"
 
-  # route based on classification
-  if .sentiment.label == "negative" and .priority == "high":
-    slack.send "#alerts" "🚨 {{.issue.title}} (#{{.issue.number}})"
-  → if .priority == "high":
-    github.label issue.number "priority-high"
+# filter bugs
+issues → filter where="labels contains bug" → sort by="reactions.total_count" → take 5 → as "critical_bugs"
+"{{.critical_bugs | count}} critical bugs" → log
 
-# summary
-format "triaged {{.issues | count}} issues"
-  → print
+# filter requests  
+issues → filter where="labels contains enhancement" → sort by="reactions.total_count" → take 5 → as "top_requests"
+"{{.top_requests | count}} top feature requests" → log
+
+# output summary
+"triage complete" → log level="info"

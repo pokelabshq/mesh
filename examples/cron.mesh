@@ -1,0 +1,18 @@
+# cron.mesh — scheduled conditional task
+# checks a condition and executes action if met
+
+"cron started" → log level="info"
+
+# check condition (e.g., disk usage)
+shell cmd="df -h / | tail -1 | awk '{print \$5}' | tr -d '%'" → trim → number → as "disk_pct"
+
+"disk usage: {{.disk_pct}}%" → log
+
+# conditional action
+if {{.disk_pct}} > 80:
+  "WARNING: disk at {{.disk_pct}}%" → log level="warn"
+  shell cmd="echo 'cleanup needed'" → log
+else:
+  "disk ok at {{.disk_pct}}%" → log level="info"
+
+"cron complete" → log level="info"

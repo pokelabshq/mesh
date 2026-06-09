@@ -1,33 +1,12 @@
-# backup.mesh — automated backup workflow
+# backup.mesh — backup a directory with compression and checksum
+# usage: mesh run backup.mesh --input-json '{"dir": "/home/alx/projects", "dest": "/tmp/backup"}'
 
-# create timestamp
-time.now → time.format "%Y%m%d_%H%M%S"
-  → set timestamp
+"starting backup of {{.dir}}" → log level="info"
 
-# compress
-shell "tar -czf backup_{{.timestamp}}.tar.gz ~/projects ~/documents"
-  → if .code != 0:
-      log "error" "backup compression failed"
-      return {ok: false}
+now → format as "{{.}}" → replace old="_" new="-" → replace old=":" new="-" → replace old="T" new="_"
 
-# verify backup exists
-fs.exists "backup_{{.timestamp}}.tar.gz"
-  → if .:
-      fs.info "backup_{{.timestamp}}.tar.gz"
-      → set info
-      → format "✅ backup complete: {{.size}} bytes"
-      → print
-      → telegram.send "@thealxlabs" "backup: {{.size}} bytes"
-  → else:
-      log "error" "backup file not found"
-      telegram.send "@thealxlabs" "❌ backup failed"
+"compressing {{.dir}}" → log
+shell cmd="mkdir -p {{.dest}} && tar czf {{.dest}}/backup_latest.tar.gz -C $(dirname {{.dir}}) $(basename {{.dir}})" → log
 
-# cleanup old backups (keep last 5)
-fs.list "."
-  → filter .name startsWith "backup_"
-  → filter .name endsWith ".tar.gz"
-  → sort by: .name
-  → skip 5
-  → for each .:
-      fs.remove .name
-      log "info" "removed old backup: {{.name}}"
+shell cmd="sha256sum {{.dest}}/backup_latest.tar.gz" → trim → log
+"backup complete" → log level="info"

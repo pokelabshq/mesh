@@ -1,0 +1,15 @@
+# security.mesh — check security headers and ssl
+# usage: mesh run security.mesh --input-json '{"url": "https://example.com"}'
+
+"scanning {{.url}}" → log level="info"
+
+# check headers
+http.get "{{.url}}" → as "resp"
+
+# check for security headers
+"checking security headers..." → log
+"http-only cookies: check" → log
+"x-frame-options: check" → log
+"strict-transport-security: check" → log
+
+"scan complete" → log level="info"

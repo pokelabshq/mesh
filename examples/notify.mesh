@@ -1,0 +1,12 @@
+# notify.mesh — send notification with retry
+# usage: mesh run notify.mesh --input-json '{"message": "deploy complete", "url": "https://hooks.example.com/webhook"}'
+
+"preparing notification" → log level="info"
+"{{.message}}" → as "payload"
+
+# retry up to 3 times
+retry 3, backoff 2:
+  http.post "{{.url}}" body={"message": "{{.payload}}", "timestamp": "{{.now}}"} → log
+  "notification sent" → log level="info"
+
+"done" → return

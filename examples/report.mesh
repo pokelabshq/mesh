@@ -1,0 +1,18 @@
+# report.mesh — generate a daily report
+# queries an api, aggregates data, formats and saves
+
+"generating report" → log level="info"
+
+# fetch data
+http.get "https://api.github.com/repos/thealxlabs/council" → json.parse → as "repo"
+
+# extract metrics
+"stars: {{repo.stargazers_count}}" → log
+"forks: {{repo.forks_count}}" → log
+"open issues: {{repo.open_issues_count}}" → log
+
+# save report
+now → as "timestamp"
+"report_{{timestamp}}" → save path="report.json"
+
+"report saved" → log level="info"

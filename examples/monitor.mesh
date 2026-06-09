@@ -1,10 +1,14 @@
-# monitor.mesh — service health monitoring example
+# monitor.mesh — monitor website endpoints
+# usage: mesh run monitor.mesh --input-json '{"urls": ["https://pokelabs.org", "https://thealxlabs.ca"]}'
 
-# check if pokelabs.org is healthy
-http.get "https://pokelabs.org"
-  → if .status == 200:
-      log "info" "pokelabs.org is healthy ({{.status}})"
-  → if .status != 200:
-      log "error" "pokelabshq.org returned {{.status}}"
-      # in a real setup, you'd send an alert:
-      # telegram.send "@thealxlabs" "⚠️ pokelabs.org is down ({{.status}})"
+"monitoring {{.urls | count}} endpoints" → log level="info"
+
+urls → as "results"
+
+http.get "https://pokelabs.org" → as "r1"
+"http://pokelabs.org status: {{.r1.status}}" → log
+
+http.get "https://thealxlabs.ca" → as "r2"  
+"http://thealxlabs.ca status: {{.r2.status}}" → log
+
+"monitoring complete" → log level="info"

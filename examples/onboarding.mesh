@@ -1,0 +1,17 @@
+# onboarding.mesh — user onboarding flow
+# generates token, creates resources, sends welcome
+
+"starting onboarding" → log level="info"
+
+# generate access token
+uuid → as "token"
+"token: {{.token}}" → log
+
+# create user record
+now → as "created_at"
+http.post "https://api.example.com/users" body={"token": "{{.token}}", "created": "{{.created_at}}"} → log
+
+# send welcome
+http.post "https://api.example.com/notifications" body={"token": "{{.token}}", "message": "welcome aboard"} → log
+
+"onboarding complete for token {{.token}}" → log level="info"

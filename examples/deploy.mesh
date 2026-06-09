@@ -1,27 +1,18 @@
-# deploy.mesh — deployment workflow
+# deploy.mesh — deploy a docker container
+# usage: mesh run deploy.mesh --input-json '{"image": "nginx:latest", "name": "web", "port": 80}'
 
-# build the project
-shell "npm run build"
-  → if .code != 0:
-      log "error" "build failed"
-      slack.send "#deploys" "❌ build failed"
-      return {ok: false}
+"starting deployment" → log level="info"
 
-# run tests
-shell "npm test"
-  → if .code != 0:
-      log "error" "tests failed"
-      slack.send "#deploys" "❌ tests failed"
-      return {ok: false}
+# pull latest image
+"pulling image" → shell cmd="docker pull {{.image}}" → log
 
-# deploy
-shell "npm run deploy"
-  → if .code != 0:
-      log "error" "deploy failed"
-      slack.send "#deploys" "❌ deploy failed"
-      return {ok: false}
+# stop and remove old container if exists
+"stopping old container" → shell cmd="docker stop {{.name}} 2>/dev/null; docker rm {{.name}} 2>/dev/null; true" → log
 
-# notify success
-slack.send "#deploys" "✅ deployed successfully"
-log "info" "deployment complete"
-return {ok: true}
+# start new container
+"starting new container" → shell cmd="docker run -d --name {{.name}} -p {{.port}}:80 {{.image}}" → log
+
+# verify health
+"verifying health" → shell cmd="docker inspect --format='{{.State.Running}}' {{.name}}" → trim → log
+
+"deployment complete" → log level="info"

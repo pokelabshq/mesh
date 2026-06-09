@@ -1,0 +1,14 @@
+# scrape.mesh — extract and deduplicate links from a webpage
+# usage: mesh run scrape.mesh --input-json '{"url": "https://example.com"}'
+
+"fetching {{.url}}" → log level="info"
+
+http.get "{{.url}}" → as "page"
+
+# extract links (simplified — real impl would parse html)
+"extracting links..." → log
+"found links" → log
+
+# deduplicate
+unique → take 20 → count → as "total"
+"{{.total}} unique links found" → log level="info"

@@ -1,0 +1,25 @@
+# ci.mesh — CI pipeline stages
+# simulates a full CI pipeline
+
+"pipeline started" → log level="info"
+
+# stage 1: lint
+"[lint]" → log
+shell cmd="echo 'linting...' && exit 0" → log
+"lint: pass" → log level="info"
+
+# stage 2: test
+"[test]" → log
+shell cmd="echo 'running tests...' && exit 0" → log
+"test: pass" → log level="info"
+
+# stage 3: build
+"[build]" → log
+shell cmd="echo 'building...' && exit 0" → log
+"build: pass" → log level="info"
+
+# stage 4: deploy (dry run)
+"[deploy]" → log
+"deploy: dry run — would deploy to production" → log
+
+"pipeline complete" → log level="info"
